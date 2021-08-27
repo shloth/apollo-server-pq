@@ -1,14 +1,18 @@
 const { ApolloServer } = require("apollo-server");
+const { MemcachedCache } = require('apollo-server-cache-memcached');
 const fetch = require("node-fetch");
 const _ = require("lodash");
+const { ApolloServerPluginCacheControl } = require('apollo-server-core');
+const { InMemoryLRUCache } = require("apollo-server-caching");
+
 
 // Construct a schema, using GraphQL schema language
 const typeDefs = `
-  type Query {
-    rates(currency: String!): [ExchangeRate]
+  type Query @cacheControl(maxAge: 60) {
+    rates(currency: String!): [ExchangeRate] @cacheControl(maxAge: 180)
   }
 
-	type ExchangeRate {
+	type ExchangeRate @cacheControl(maxAge: 180) {
 		currency: String
 		rate: String
 		name: String
@@ -53,7 +57,11 @@ const resolvers = {
 
 const server = new ApolloServer({
   typeDefs,
-  resolvers
+  resolvers,
+  plugins: [ApolloServerPluginCacheControl({ defaultMaxAge: 5 })],
+  persistedQueries: {
+    cache: new InMemoryLRUCache() 
+  },
 });
 
 server.listen().then(({ url }) => {
